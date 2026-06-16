@@ -1,7 +1,8 @@
 ﻿using System.Net.Http.Json;
+using System.Text.Json;
 using YouTubeFetcher.Models;
 
-namespace YouTubeDataFetcher.Services;
+namespace YouTubeFetcher.Services;
 
 public class YouTubeApiService
 {
@@ -35,8 +36,45 @@ public class YouTubeApiService
         string publishedBefore = $"{year}-12-31T23:59:59Z";
         string url = $"{BaseUrl}/search?part=snippet&channelId={channelId}&maxResults=10&publishedAfter={publishedAfter}&publishedBefore={publishedBefore}&type=video&key={_apiKey}";
 
-        var response = await _client.GetFromJsonAsync<YouTubeVideosResponse>(url);
+        int maxRetries = 3;
+        int delayMilliseconds = 2000;
 
-        return response?.Items ?? [];
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            var response = await _client.GetAsync(url);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var data = await response.Content.ReadFromJsonAsync<YouTubeVideosResponse>();
+                return data?.Items ?? [];
+            }
+
+            if (attempt == maxRetries)
+            {
+                await GetErrorMessage(response, maxRetries);
+            }
+
+            await Task.Delay(delayMilliseconds);
+        }
+
+        return [];
+    }
+
+    private static async Task GetErrorMessage(HttpResponseMessage response, int maxRetries)
+    {
+        string errorJson = await response.Content.ReadAsStringAsync();
+        try
+        {
+            var jsonDoc = JsonDocument.Parse(errorJson);
+            var errorElement = jsonDoc.RootElement.GetProperty("error");
+            string errorMessage = errorElement.GetProperty("message").GetString() ?? "Unknown error";
+            string errorReason = errorElement.GetProperty("errors")[0].GetProperty("reason").GetString() ?? "Unknown reason";
+
+            throw new Exception($"Google API permanently rejected the request (after {maxRetries} attempts).\nStatus: {response.StatusCode}\nReason: {errorReason}\nDetail: {errorMessage}");
+        }
+        catch (JsonException)
+        {
+            throw new Exception($"API error after {maxRetries} attempts. Status: {response.StatusCode}\nRaw data: {errorJson}");
+        }
     }
 }

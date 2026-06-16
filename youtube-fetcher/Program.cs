@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using System.Net.Http.Headers;
-using YouTubeDataFetcher.Services;
+using YouTubeFetcher.Services;
 
 IConfigurationRoot config = new ConfigurationBuilder()
     .AddUserSecrets<Program>()
@@ -11,7 +11,7 @@ string youtubeApiKey = config["YoutubeApiKey"] ?? throw new Exception("Youtube A
 using HttpClient client = new();
 client.DefaultRequestHeaders.Accept.Clear();
 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-client.DefaultRequestHeaders.Add("User-Agent", "YouTubeDataFetcher");
+client.DefaultRequestHeaders.Add("User-Agent", "YouTubeFetcher");
 
 var youtubeService = new YouTubeApiService(client, youtubeApiKey);
 
