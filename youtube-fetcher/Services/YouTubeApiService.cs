@@ -23,41 +23,55 @@ public class YouTubeApiService
         var channel = response?.Items?.FirstOrDefault();
 
         if (channel != null)
-        {
             return channel.Id;
-        }
 
         throw new Exception($"Channel with handle @{channelHandle} was not found.");
     }
 
     public async Task<List<YouTubeVideoItem>> GetVideosByYearAsync(string channelId, string year)
     {
+        var allVideos = new List<YouTubeVideoItem>();
+
         string publishedAfter = $"{year}-01-01T00:00:00Z";
         string publishedBefore = $"{year}-12-31T23:59:59Z";
-        string url = $"{BaseUrl}/search?part=snippet&channelId={channelId}&maxResults=10&publishedAfter={publishedAfter}&publishedBefore={publishedBefore}&type=video&key={_apiKey}";
+
+        string baseUrl = $"{BaseUrl}/search?part=snippet&channelId={channelId}&maxResults=50&publishedAfter={publishedAfter}&publishedBefore={publishedBefore}&type=video&key={_apiKey}";
 
         int maxRetries = 3;
         int delayMilliseconds = 2000;
+        string? nextPageToken = null;
 
-        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        do
         {
-            var response = await _client.GetAsync(url);
+            string currentUrl = baseUrl;
+            if (!string.IsNullOrEmpty(nextPageToken))
+                currentUrl += $"&pageToken={nextPageToken}";
 
-            if (response.IsSuccessStatusCode)
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
-                var data = await response.Content.ReadFromJsonAsync<YouTubeVideosResponse>();
-                return data?.Items ?? [];
+                var response = await _client.GetAsync(currentUrl);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.Content.ReadFromJsonAsync<YouTubeVideosResponse>();
+
+                    allVideos.AddRange(data?.Items ?? []);
+
+                    nextPageToken = data?.NextPageToken;
+
+                    break;
+                }
+
+                if (attempt == maxRetries)
+                    await GetErrorMessage(response, maxRetries);
+                
+
+                await Task.Delay(delayMilliseconds);
             }
 
-            if (attempt == maxRetries)
-            {
-                await GetErrorMessage(response, maxRetries);
-            }
+        } while (!string.IsNullOrEmpty(nextPageToken));
 
-            await Task.Delay(delayMilliseconds);
-        }
-
-        return [];
+        return allVideos;
     }
 
     private static async Task GetErrorMessage(HttpResponseMessage response, int maxRetries)
