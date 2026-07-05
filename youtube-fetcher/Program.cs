@@ -15,31 +15,80 @@ client.DefaultRequestHeaders.Add("User-Agent", "YouTubeFetcher");
 
 var youtubeService = new YouTubeApiService(client, youtubeApiKey);
 
-try
+string channelHandle = "@";
+string channelId = "";
+
+while (true)
 {
-    Console.Write("Enter youtube channel handle (@Handle): @");
-    string channelHandle = Console.ReadLine()?.Trim() ?? "";
+    Console.Write($"""
+        1. Change YouTube channel handle
+        2. Enter year
+        -----------------
+        Current YouTube channel handle: {channelHandle}
 
-    string channelId = await youtubeService.GetChannelIdAsync(channelHandle);
+        Choose an option: 
+        """);
 
-    Console.WriteLine($"Saved channel ID: {channelId}");
-    Console.WriteLine($"Link to youtube channel: https://www.youtube.com/channel/{channelId}\n");
-
-    Console.Write("Enter year (2005-2026): ");
-    string year = Console.ReadLine()?.Trim() ?? "";
-
-    var videos = await youtubeService.GetVideosByYearAsync(channelId, year);
-
-    Console.WriteLine($"\nFound videos ({videos.Count}):");
-    foreach (var video in videos)
+    switch (Console.ReadLine())
     {
-        Console.WriteLine($"- {video.Snippet.Title}");
-        Console.WriteLine($" Link: https://www.youtube.com/watch?v={video.Id.VideoId}\n");
+        case "1":
+            await ChangeChannelHandle();
+            break;
+        case "2":
+            if (string.IsNullOrEmpty(channelId))
+            {
+                Console.WriteLine("Please set the channel handle first (Option 1).");
+                break;
+            }
+            await EnterYear(channelId);
+            break;
+        default:
+            Console.WriteLine("Invalid option. Please try again.");
+            break;
     }
 }
-catch (Exception ex)
+
+async Task ChangeChannelHandle()
 {
-    Console.ForegroundColor = ConsoleColor.Red;
-    Console.WriteLine($"\nError: {ex.Message}");
-    Console.ResetColor();
+    try
+    {
+        Console.Write("Enter youtube channel handle (@Handle): @");
+        string newHandle = Console.ReadLine()?.Trim() ?? "";
+
+        channelId = await youtubeService.GetChannelIdAsync(newHandle);
+        channelHandle = "@" + newHandle;
+
+        Console.WriteLine($"Saved channel ID: {channelId}");
+    }
+    catch (Exception ex)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine($"\nError: {ex.Message}");
+        Console.ResetColor();
+    }
+}
+
+async Task EnterYear(string currentChannelId)
+{
+    try
+    {
+        Console.Write("Enter year (2005-2026): ");
+        string year = Console.ReadLine()?.Trim() ?? "";
+
+        Console.WriteLine("Fetching videos, please wait...");
+        var videos = await youtubeService.GetVideosByYearAsync(currentChannelId, year);
+
+        Console.WriteLine($"\nFound videos ({videos.Count}):");
+        foreach (var video in videos)
+        {
+            Console.WriteLine($"- {video.Snippet.Title}");
+            Console.WriteLine($"  Link: https://www.youtube.com/watch?v={video.Id.VideoId}\n");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine($"\nError: {ex.Message}");
+        Console.ResetColor();
+    }
 }
