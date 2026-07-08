@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using System.Net.Http.Headers;
+using YouTubeFetcher.Models;
 using YouTubeFetcher.Services;
 
 IConfigurationRoot config = new ConfigurationBuilder()
@@ -23,6 +24,7 @@ while (true)
     Console.Write($"""
         1. Change YouTube channel handle
         2. Enter year
+        3. Exit
         -----------------
         Current YouTube channel handle: {channelHandle}
 
@@ -41,6 +43,10 @@ while (true)
                 break;
             }
             await EnterYear(channelId);
+            break;
+        case "3":
+            Console.WriteLine("Exiting...");
+            Environment.Exit(0);
             break;
         default:
             Console.WriteLine("Invalid option. Please try again.");
@@ -78,12 +84,7 @@ async Task EnterYear(string currentChannelId)
         Console.WriteLine("Fetching videos, please wait...");
         var videos = await youtubeService.GetVideosByYearAsync(currentChannelId, year);
 
-        Console.WriteLine($"\nFound videos ({videos.Count}):");
-        foreach (var video in videos)
-        {
-            Console.WriteLine($"- {video.Snippet.Title}");
-            Console.WriteLine($"  Link: https://www.youtube.com/watch?v={video.Id.VideoId}\n");
-        }
+        DisplayVideos(videos);
     }
     catch (Exception ex)
     {
@@ -91,4 +92,31 @@ async Task EnterYear(string currentChannelId)
         Console.WriteLine($"\nError: {ex.Message}");
         Console.ResetColor();
     }
+}
+
+void DisplayVideos(List<YouTubeVideoItem> videos)
+{
+    Console.WriteLine($"\nFound videos ({videos.Count}):");
+
+    string separator = new string('-', 101);
+
+    Console.WriteLine(separator);
+    Console.WriteLine($"| {"Video Title",-50} | {"Video Link",-44} |");
+    Console.WriteLine(separator);
+
+    foreach (var video in videos)
+    {
+        string title = video.Snippet.Title;
+
+        if (title.Length > 50)
+        {
+            title = title.Substring(0, 47) + "...";
+        }
+
+        string link = $"https://www.youtube.com/watch?v={video.Id.VideoId}";
+
+        Console.WriteLine($"| {title,-50} | {link,-44} |");
+    }
+
+    Console.WriteLine(separator);
 }
